@@ -1,10 +1,6 @@
-int constrain(int x, int a, int b);
-int abs(int n);
-
 int init();
 void init_ncurses();
 void makeCanvas();
-void redrawCanvas();
 void run();
 void close();
 
