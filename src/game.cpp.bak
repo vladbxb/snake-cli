@@ -1,0 +1,221 @@
+#include <string>
+#include <unistd.h>
+#include <ncurses.h>
+#include <cmath>
+#include <time.h>
+#include <vector>
+
+#include "game.h"
+
+WINDOW* wnd;
+rectangle window_area;
+int screen_height, screen_width;
+
+int constrain(int x, int a, int b) {
+	if (a < x && x < b) {
+		return x;
+	}
+	if (x <= a) {
+		return a;
+	}
+	return b;
+}
+
+int abs(int n) {
+	if (n >= 0) {
+		return n;
+	}
+	return n * -1;
+}
+
+class Food {
+	public:
+		coord pos;
+		int display_character = 'o';
+		void pickLocation() {
+			mvaddch(this->pos.y, this->pos.x, ' ');
+
+			this->pos.x = constrain(abs(rand() % 100 - 21), 1, 80);
+			this->pos.y = constrain(abs(rand() % 100 - 76), 1, 24);
+			attron(COLOR_PAIR(3));
+			mvaddch(this->pos.y, this->pos.x, this->display_character);
+			attroff(COLOR_PAIR(3));
+		}
+}f;
+
+
+class Snake {
+	private:
+		coord pos = {5, 5};
+		coord speed {1, 0};
+		int display_character = 'o';
+	public:
+		int getX() {
+			return this->pos.x;
+		}
+		int getY() {
+			return this->pos.y;
+		}
+
+		void update() {
+			mvaddch(this->pos.y, this->pos.x, ' ');
+
+			this->pos.x = this->pos.x + this->speed.x;
+			this->pos.y = this->pos.y + this->speed.y;
+
+			this->pos.x = constrain(this->pos.x, window_area.left() + 1, window_area.right() - 2);
+			this->pos.y = constrain(this->pos.y, window_area.top() + 1, window_area.bottom() - 2);
+
+		}
+
+		void show() {
+			attron(COLOR_PAIR(2));
+			mvaddch(this->pos.y, this->pos.x, this->display_character);
+			attroff(COLOR_PAIR(2));
+		}
+
+		void dir(int x, int y) {
+			this->speed.x = x;
+			this->speed.y = y;
+		}
+
+		bool eat(Food f) {
+			/*int d = dist(this->pos.x, this->pos.y, f.pos.x, f.pos.y); 
+			if (d < 1) {
+				return true;
+			} else {
+				return false;
+			}*/
+
+			if (this->pos.x == f.pos.x && this->pos.y == f.pos.y) {
+				return true;
+			}
+			return false;
+		}
+
+
+}s;
+
+
+
+void init_ncurses() {
+	srand(time(0));
+
+	wnd = initscr();
+	cbreak();
+	noecho();
+	clear();
+	refresh();
+	keypad(wnd, true);
+	nodelay(wnd, true);
+	curs_set(0);
+}
+
+void makeCanvas() {
+	if(!has_colors()) {
+        	endwin();
+        	printf("ERROR: Terminal does not support color.\n");
+        	exit(1);
+	}
+	
+	start_color();
+
+	window_area.offset = {0, 0};
+
+
+	getmaxyx(wnd, screen_height, screen_width);
+
+	window_area.bounds = {screen_width, screen_height};
+
+	//makes a box around the terminal in bold font
+	attron(A_BOLD);
+	box(wnd, 0, 0);
+	attroff(A_BOLD);
+	
+	//changes color scheme to black and white
+
+    	init_pair(1, COLOR_WHITE, COLOR_BLACK);
+	init_pair(2, COLOR_GREEN, COLOR_BLACK);
+	init_pair(3, COLOR_RED, COLOR_BLACK);
+    	wbkgd(wnd, COLOR_PAIR(1));
+}
+
+void redrawCanvas() {
+	init_pair(1, COLOR_WHITE, COLOR_BLACK);
+    	wbkgd(wnd, COLOR_PAIR(1));
+}
+
+int init() {
+	init_ncurses();
+	makeCanvas();
+
+	refresh();
+
+	f.pickLocation();
+
+	return 0;
+};
+
+void run() {
+	/*
+	player.pos.x = 10;
+	player.pos.y = 10;
+	player.display_character = 'o';
+	*/
+	int in_char;
+
+	bool exit_requested = false;
+
+
+	while(1) {
+		in_char = wgetch(wnd);
+		
+		redrawCanvas();	
+
+		s.update();
+
+		switch (in_char) {
+			case 'q':
+				exit_requested = true;
+				break;
+			case KEY_UP:
+			case 'w':
+				s.dir(0, -1);
+				break;
+			case KEY_DOWN:
+			case 's':
+				s.dir(0, 1);
+				break;
+			case KEY_LEFT:
+			case 'a':
+				s.dir(-1, 0);
+				break;
+			case KEY_RIGHT:
+			case 'd':
+				s.dir(1, 0);
+				break;
+			default:
+				break;
+		}
+
+		s.show();
+
+		if (s.eat(f)) {
+			f.pickLocation();
+		}
+
+		refresh();
+
+		if (exit_requested) break;
+
+		usleep(80000);
+	}
+}
+
+void close() {
+	endwin();
+}
+
+
+
+
